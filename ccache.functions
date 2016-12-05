@@ -1,0 +1,103 @@
+# This file is part of libertine linux's package ccache. It is subject to the license terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/libertine-linux-packages/ccache/master/COPYRIGHT. No part of libertine linux's package ccache, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2016 The developers of libertine linux's package ccache. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/libertine-linux-packages/ccache/master/COPYRIGHT.
+
+
+variant=upstream
+
+
+case "$package" in
+	
+	build_ccache)
+		
+		build_provides ccache
+		
+		build_needs cc ar ld ranlib
+		libertine_compile_build_ccache()
+		{
+			_libertine_compile_ccache_compilerFlags()
+			{
+				:
+			}
+			
+			_libertine_compile_ccache_internal "$(libertine_public_outputBuildSysrootPath)" false '' _libertine_compile_ccache_compilerFlags "$(libertine_public_outputBuildSysrootPath)"
+		}
+		
+	;;
+	
+	ccache)
+		
+		depends build_musl_cross_make_host
+		build_needs "$libertine_host"-cc "$libertine_host"-ar "$libertine_host"-ranlib "$libertine_host"-ld "$libertine_host"-strip
+		libertine_compile_ccache()
+		{
+			_libertine_compile_ccache_internal "$(libertine_public_outputInitramfsPath)" true "$libertine_host"- libertine_public_hostCCompilerFlags "$(libertine_public_outputHostSysrootPath)"
+		}
+		
+	;;
+	
+esac
+
+depends build_gnumake
+build_needs make
+
+depends build_busybox
+
+depends build_gnuconfig
+
+build_needs mkdir sed cp install mv cat chmod
+_libertine_compile_ccache_internal()
+{
+	local outputFolderPath="$1"
+	local shouldStrip="$2"
+	local crossCompilePrefix="$3"
+	local compilerFlagsFunction="$4"
+	local outputSysrootPath="$5"
+	shift 5
+	
+	local outputBinFolderPath="$outputFolderPath"/usr/bin
+	mkdir -m 0755 -p "$outputBinFolderPath"
+	
+	pushd "$(libertine_public_sourcePath)"
+		
+		libertine_public_autoconf_replaceWithKnownVersionOfConfigSub config.sub
+		libertine_public_autoconf_replaceWithKnownVersionOfConfigGuess config.guess
+		
+		sed \
+			-e 's;@srcdir@;'"$(libertine_public_sourcePath)"';g' \
+			-e 's;@prefix@;/usr;g' \
+			-e 's;@exec_prefix@;/usr;g' \
+			-e 's;@bindir@;/usr/bin;g' \
+			-e 's;@mandir@;/usr/share/man;g' \
+			-e 's;@datarootdir@;/usr/share;g' \
+			-e 's;@sysconfdir@;/etc;g' \
+			-e 's;@INSTALL@;install -c;g' \
+			-e 's;@AR@;'"${crossCompilePrefix}"'ar;g' \
+			-e 's;@CC@;'"${crossCompilePrefix}"'cc;g' \
+			-e 's;@RANLIB@;'"${crossCompilePrefix}"'ranlib;g' \
+			-e 's;@CFLAGS@;'"$($compilerFlagsFunction)"' -DHAVE_CONFIG_H -I$(srcdir)/zlib;g' \
+			-e 's;@CPPFLAGS@;-DHAVE_CONFIG_H -I$(srcdir)/zlib;g' \
+			-e 's;@LDFLAGS@;;g' \
+			-e 's;@LIBS@;;g' \
+			-e 's;@EXEEXT@;;g' \
+			-e 's;@DEFS@;;g' \
+			-e 's;@extra_libs@;zlib/libz.a;g' \
+			-e 's;@test_suites@;;g' \
+			-e 's;@include_dev_mk@;;g' \
+			Makefile.in >Makefile
+		
+		libertine_public_autoconf_installConfigHHeader
+		
+		cp "$(libertine_public_packagePath)"/version.c ./
+		
+		libertine_public_make
+		
+		printf '' >ccache.1
+		
+		libertine_public_make DESTDIR="$outputSysrootPath" install
+		
+	popd
+		
+	if $shouldStrip; then
+		libertine_public_installAndStripBinariesIn bin ccache
+	fi
+}
