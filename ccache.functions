@@ -12,6 +12,7 @@ case "$package" in
 		build_provides ccache
 		
 		build_needs cc ar ld ranlib
+		
 		libertine_compile_build_ccache()
 		{
 			_libertine_compile_ccache_compilerFlags()
@@ -28,6 +29,10 @@ case "$package" in
 		
 		depends build_musl_cross_make_host
 		build_needs "$libertine_host"-cc "$libertine_host"-ar "$libertine_host"-ranlib "$libertine_host"-ld "$libertine_host"-strip
+
+		depends build_paxctl
+		build_needs paxctl
+		
 		libertine_compile_ccache()
 		{
 			_libertine_compile_ccache_internal "$(libertine_public_outputInitramfsPath)" true "$libertine_host"- libertine_public_hostCCompilerFlags "$(libertine_public_outputHostSysrootPath)"
@@ -98,6 +103,6 @@ _libertine_compile_ccache_internal()
 	popd
 		
 	if $shouldStrip; then
-		libertine_public_installAndStripBinariesIn bin ccache
+		libertine_public_installAndStripBinaryIn bin ccache
 	fi
 }
